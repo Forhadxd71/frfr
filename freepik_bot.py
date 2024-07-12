@@ -1,7 +1,6 @@
 import logging
 import re
 import requests
-import asyncio
 import json
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.utils.exceptions import MessageToDeleteNotFound
@@ -43,7 +42,7 @@ def extract_information(response_json):
         "author_name": author_name
     }
 
-@dp.message_handler(commands=['freepik']) # You Can Change the command freepik to anything 
+@dp.message_handler(commands=['freepik'])  # You can change the command to anything
 async def process_freepik_url(message: types.Message):
     user_id = message.from_user.id
     chat_id = message.chat.id
@@ -65,29 +64,33 @@ async def process_freepik_url(message: types.Message):
         # First request
         response = requests.get(first_url, cookies=cookies)
         if response.status_code == 200:
-            info = extract_information(response.json())
-            title = info['title']
-            author_name = info['author_name']
-            download_url = info['download_url']
+            try:
+                response_json = response.json()
+                info = extract_information(response_json)
+                title = info['title']
+                author_name = info['author_name']
+                download_url = info['download_url']
 
-            if download_url:
-                # Create the message text
-                message_text = (
-                    f"<b>Here is the Download Link ✅\n"
-                    f"━━━━━━━━━━━━━━━━\n"
-                    f"Title: {title}\n"
-                    f"Author Name: {author_name}\n"
-                    f"Download Link: <a href='{download_url}'>Download Now</a>\n"
-                    f"━━━━━━━━━━━━━━━━\n"
-                    f"Freepik Downloader By: <a href='https://t.me/YOUR_BOT'>Your Bot</a></b>"
-                )
-                download_button = types.InlineKeyboardMarkup()
-                download_button.add(types.InlineKeyboardButton(text="Download Now", url=download_url))
+                if download_url:
+                    # Create the message text
+                    message_text = (
+                        f"<b>Here is the Download Link ✅\n"
+                        f"━━━━━━━━━━━━━━━━\n"
+                        f"Title: {title}\n"
+                        f"Author Name: {author_name}\n"
+                        f"Download Link: <a href='{download_url}'>Download Now</a>\n"
+                        f"━━━━━━━━━━━━━━━━\n"
+                        f"Freepik Downloader By: <a href='https://t.me/YOUR_BOT'>Your Bot</a></b>"
+                    )
+                    download_button = types.InlineKeyboardMarkup()
+                    download_button.add(types.InlineKeyboardButton(text="Download Now", url=download_url))
 
-                # Send the message with the inline button
-                await message.answer(message_text, reply_markup=download_button, parse_mode='HTML')
-            else:
-                await message.answer("Failed to get the download URL.", parse_mode='HTML')
+                    # Send the message with the inline button
+                    await message.answer(message_text, reply_markup=download_button, parse_mode='HTML')
+                else:
+                    await message.answer("Failed to get the download URL.", parse_mode='HTML')
+            except json.JSONDecodeError:
+                await message.answer("Failed to parse the response JSON.", parse_mode='HTML')
         else:
             await message.answer(f"First request failed with status code: {response.status_code}", parse_mode='HTML')
 
