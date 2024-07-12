@@ -63,6 +63,7 @@ async def process_freepik_url(message: types.Message):
     try:
         # First request
         response = requests.get(first_url, cookies=cookies)
+        print(response.text)  # Print the response text for debugging
         if response.status_code == 200:
             try:
                 response_json = response.json()
