@@ -1,10 +1,9 @@
 import logging
 import re
 import requests
-import asyncio
+import json
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import os
 
 # Set your Telegram API ID, API Hash, and Bot Token
 api_id = 24232038
@@ -12,23 +11,19 @@ api_hash = "6b55079d2ba17ccc133881d67df066a9"
 bot_token = "7356825607:AAFrCmn2zfstPspsp2agDBdvaGj2GM0LpmE"
 
 # Initialize Pyrogram Client
-app = Client("tirrexcr_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+app = Client("my_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
-# Function to load cookies from a Netscape format file
+# Function to load cookies from a JSON file in Netscape format
 def load_cookies(file_path):
     cookies = {}
     with open(file_path, 'r') as file:
-        lines = file.readlines()
-        for line in lines:
-            if not line or line.startswith('#') or line.startswith('\n'):
-                continue
-            parts = line.strip().split('\t')
-            if len(parts) == 7:
-                cookies[parts[5]] = parts[6]
+        cookies_raw = json.load(file)
+        for cookie in cookies_raw:
+            cookies[cookie['name']] = cookie['value']
     return cookies
 
 # Load cookies
-cookies = load_cookies('cookies.txt')
+cookies = load_cookies('cookies.json')
 
 # Function to extract necessary information from the response
 def extract_information(response_json):
