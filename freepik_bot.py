@@ -1,32 +1,34 @@
 import logging
 import re
 import requests
-import json
-from aiogram import Bot, Dispatcher, executor, types
-from aiogram.utils.exceptions import MessageToDeleteNotFound
+import asyncio
+from pyrogram import Client, filters
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import os
 
-# Initialize bot and dispatcher
-bot_token = '7356825607:AAFrCmn2zfstPspsp2agDBdvaGj2GM0LpmE'  # Replace with your bot's token
-bot = Bot(token=bot_token)
-dp = Dispatcher(bot)
+# Set your Telegram API ID, API Hash, and Bot Token
+api_id = 24232038
+api_hash = "6b55079d2ba17ccc133881d67df066a9"
+bot_token = "7356825607:AAFrCmn2zfstPspsp2agDBdvaGj2GM0LpmE"
 
-# Function to load cookies from a file
+# Initialize Pyrogram Client
+app = Client("tirrexcr_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+
+# Function to load cookies from a Netscape format file
 def load_cookies(file_path):
+    cookies = {}
     with open(file_path, 'r') as file:
-        cookies_raw = json.load(file)
-        if isinstance(cookies_raw, dict):
-            return cookies_raw
-        elif isinstance(cookies_raw, list):
-            cookies = {}
-            for cookie in cookies_raw:
-                if 'name' in cookie and 'value' in cookie:
-                    cookies[cookie['name']] = cookie['value']
-            return cookies
-        else:
-            raise ValueError("Cookies are in an unsupported format.")
+        lines = file.readlines()
+        for line in lines:
+            if not line or line.startswith('#') or line.startswith('\n'):
+                continue
+            parts = line.strip().split('\t')
+            if len(parts) == 7:
+                cookies[parts[5]] = parts[6]
+    return cookies
 
 # Load cookies
-cookies = load_cookies('cookie.json')
+cookies = load_cookies('cookies.txt')
 
 # Function to extract necessary information from the response
 def extract_information(response_json):
@@ -42,29 +44,30 @@ def extract_information(response_json):
         "author_name": author_name
     }
 
-@dp.message_handler(commands=['freepik'])  # You can change the command to anything
-async def process_freepik_url(message: types.Message):
+@app.on_message(filters.command("freepik"))  # You can change the command to anything
+async def process_freepik_url(client, message):
     user_id = message.from_user.id
     chat_id = message.chat.id
 
     # Check if the URL is valid
-    url = message.get_args()
+    url = message.text.split(maxsplit=1)[1] if len(message.text.split()) > 1 else ""
     match = re.search(r'freepik\.com/(.+)', url)
     if not url or not match:
-        await message.answer("<b>Please provide a valid Freepik URL after the /freepik command</b>", parse_mode='HTML')
+        await message.reply("<b>Please provide a valid Freepik URL after the /freepik command</b>", parse_mode='HTML')
         return
 
     resource_id = match.group(1)
     first_url = f'https://www.freepik.com/{resource_id}'
 
     # Send a loading message
-    loading_message = await message.answer("<b>Processing your request...</b>", parse_mode='HTML')
+    loading_message = await message.reply("<b>Processing your request...</b>", parse_mode='HTML')
 
     try:
         # First request
         response = requests.get(first_url, cookies=cookies)
         print(response.text)  # Print the response text for debugging
-        if response.status_code == 200:
+
+        if response.headers.get('Content-Type') == 'application/json':
             try:
                 response_json = response.json()
                 info = extract_information(response_json)
@@ -83,26 +86,27 @@ async def process_freepik_url(message: types.Message):
                         f"━━━━━━━━━━━━━━━━\n"
                         f"Freepik Downloader By: <a href='https://t.me/YOUR_BOT'>Your Bot</a></b>"
                     )
-                    download_button = types.InlineKeyboardMarkup()
-                    download_button.add(types.InlineKeyboardButton(text="Download Now", url=download_url))
+                    download_button = InlineKeyboardMarkup(
+                        [[InlineKeyboardButton("Download Now", url=download_url)]]
+                    )
 
                     # Send the message with the inline button
-                    await message.answer(message_text, reply_markup=download_button, parse_mode='HTML')
+                    await client.send_message(chat_id, message_text, reply_markup=download_button, parse_mode='HTML')
                 else:
-                    await message.answer("Failed to get the download URL.", parse_mode='HTML')
-            except json.JSONDecodeError:
-                await message.answer("Failed to parse the response JSON.", parse_mode='HTML')
+                    await message.reply("Failed to get the download URL.", parse_mode='HTML')
+            except Exception as e:
+                await message.reply("Failed to parse the response JSON.", parse_mode='HTML')
         else:
-            await message.answer(f"First request failed with status code: {response.status_code}", parse_mode='HTML')
+            await message.reply("The response is not in JSON format.", parse_mode='HTML')
 
     except Exception as e:
-        await message.answer(f"<code>An error occurred: {e}</code>", parse_mode='HTML')
+        await message.reply(f"<code>An error occurred: {e}</code>", parse_mode='HTML')
 
     # After processing is complete, delete the loading message
     try:
-        await bot.delete_message(chat_id, loading_message.message_id)
-    except MessageToDeleteNotFound:
+        await loading_message.delete()
+    except:
         pass  # Message was already deleted
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    app.run()
